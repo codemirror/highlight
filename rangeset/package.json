@@ -1,5 +1,0 @@
-{
-  "main": "dist/rangeset.js",
-  "types": "dist/rangeset.d.ts",
-  "module": "dist/rangeset.esm"
-}

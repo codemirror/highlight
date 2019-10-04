@@ -1,5 +1,0 @@
-{
-  "main": "dist/matchbrackets.js",
-  "types": "dist/matchbrackets.d.ts",
-  "module": "dist/matchbrackets.esm"
-}

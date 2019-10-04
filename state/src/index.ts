@@ -1,6 +1,0 @@
-export {EditorStateConfig, EditorState} from "./state"
-export {Command, Syntax, CancellablePromise, StateField} from "./extension"
-export {EditorSelection, SelectionRange} from "./selection"
-export {Change, ChangeDesc, ChangeSet, Mapping, MapMode, ChangedRange} from "./change"
-export {Transaction} from "./transaction"
-export {Slot} from "../../extension"

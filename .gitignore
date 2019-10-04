@@ -1,8 +1,0 @@
-/node_modules
-package-lock.json
-/demo/demo.js*
-/demo/test/test.js*
-/.rpt2_cache
-/website
-/*/dist
-.tern-*

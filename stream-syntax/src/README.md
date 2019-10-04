@@ -1,5 +1,0 @@
-@StreamParser
-
-@StringStream
-
-@StreamSyntax
