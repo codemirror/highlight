@@ -371,7 +371,7 @@ function highlightTreeRange(tree: Tree, from: number, to: number,
     leave: (_t, _s, end) => {
       depth--
       let backTo = classStack[depth]
-      if (backTo != spanClass) {
+      if (backTo != spanClass || to == end) {
         let pos = Math.min(to, end)
         if (pos > spanStart) span(spanStart, pos, spanClass)
         spanStart = pos
