@@ -268,17 +268,16 @@ export class HighlightStyle {
 
 /// Given a string of code and a language, parse the code in that
 /// language and run the tree highlighter over the resulting syntax
-/// tree. For each differently-styled range, call `emit` with the
-/// extend of the range and the CSS classes (as a space-separated
-/// string) that apply to it. `emit` will be called with an empty
+/// tree. For each differently-styled range, call `putStyle` with the
+/// extent of the range and the CSS classes (as a space-separated
+/// string) that apply to it. `putStyle` will be called with an empty
 /// string for unstyled ranges.
 export function highlightTree(
   tree: Tree,
   /// Get the CSS classes used to style a given [tag](#highlight.Tag),
   /// or `null` if it isn't styled.
   getStyle: (tag: Tag) => string | null,
-  /// Assign styling to a region of the text. Will only be in order of
-  /// position for any ranges where more than zero classes apply.
+  /// Assign styling to a region of the text.
   /// `classes` is a space separated string of CSS classes.
   putStyle: (from: number, to: number, classes: string) => void
 ) {
@@ -356,7 +355,7 @@ function highlightTreeRange(tree: Tree, from: number, to: number,
         rule = rule.next
       }
       if (cls != spanClass) {
-        if (start > spanStart && spanClass) span(spanStart, start, spanClass)
+        if (start > spanStart) span(spanStart, start, spanClass)
         spanStart = start
         spanClass = cls
       }
@@ -374,7 +373,7 @@ function highlightTreeRange(tree: Tree, from: number, to: number,
       let backTo = classStack[depth]
       if (backTo != spanClass) {
         let pos = Math.min(to, end)
-        if (pos > spanStart && spanClass) span(spanStart, pos, spanClass)
+        if (pos > spanStart) span(spanStart, pos, spanClass)
         spanStart = pos
         spanClass = backTo
       }
