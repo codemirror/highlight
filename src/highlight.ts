@@ -237,6 +237,7 @@ export class HighlightStyle {
   }
 
   /// Returns the CSS class associated with the given tag, if any.
+  /// This method is bound to the instance by the constructor.
   match(tag: Tag) {
     for (let t of tag.set) {
       let match = this.map[t.id]
@@ -265,20 +266,18 @@ export class HighlightStyle {
   }
 }
 
-
 /// Given a string of code and a language, parse the code in that
 /// language and run the tree highlighter over the resulting syntax
-/// tree. For each differently-styled range, call `emit` with the
-/// extend of the range and the CSS classes (as a space-separated
-/// string) that apply to it. `emit` will be called with an empty
-/// string for unstyled ranges.
+/// tree.
 export function highlightTree(
   tree: Tree,
   /// Get the CSS classes used to style a given [tag](#highlight.Tag),
-  /// or `null` if it isn't styled.
+  /// or `null` if it isn't styled. (You'll often want to pass a
+  /// highlight style's [`match`](#highlight.HighlightStyle.match)
+  /// method here.)
   getStyle: (tag: Tag) => string | null,
-  /// Assign styling to a region of the text. Will only be in order of
-  /// position for any ranges where more than zero classes apply.
+  /// Assign styling to a region of the text. Will be called, in order
+  /// of position, for any ranges where more than zero classes apply.
   /// `classes` is a space separated string of CSS classes.
   putStyle: (from: number, to: number, classes: string) => void
 ) {
