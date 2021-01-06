@@ -207,6 +207,8 @@ class Rule {
   get depth() { return this.context ? this.context.length : 0 }
 }
 
+/// A highlight style associates CSS styles with higlighting
+/// [tags](#highlight.Tag).
 export class HighlightStyle {
   /// Extension that registers this style with an editor.
   readonly extension: Extension
