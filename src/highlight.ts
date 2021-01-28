@@ -286,12 +286,6 @@ export function highlightTree(
   highlightTreeRange(tree, 0, tree.length, getStyle, putStyle)
 }
 
-// This extension installs a highlighter that highlights based on the
-// syntax tree and highlight style.
-const treeHighlighter = Prec.fallback(ViewPlugin.define(view => new TreeHighlighter(view), {
-  decorations: v => v.decorations
-}))
-
 class TreeHighlighter {
   decorations: DecorationSet
   tree: Tree
@@ -299,21 +293,21 @@ class TreeHighlighter {
 
   constructor(view: EditorView) {
     this.tree = syntaxTree(view.state)
-    this.decorations = this.buildDeco(view)
+    this.decorations = this.buildDeco(view, view.state.facet(highlightStyleProp))
   }
 
   update(update: ViewUpdate) {
-    let tree = syntaxTree(update.state)
-    if (tree.length < update.view.viewport.to) {
+    let tree = syntaxTree(update.state), style = update.state.facet(highlightStyleProp)
+    let styleChange = style != update.startState.facet(highlightStyleProp)
+    if (tree.length < update.view.viewport.to && !styleChange) {
       this.decorations = this.decorations.map(update.changes)
-    } else if (tree != this.tree || update.viewportChanged) {
+    } else if (tree != this.tree || update.viewportChanged || styleChange) {
       this.tree = tree
-      this.decorations = this.buildDeco(update.view)
+      this.decorations = this.buildDeco(update.view, style)
     }
   }
 
-  buildDeco(view: EditorView) {
-    const style = view.state.facet(highlightStyleProp)
+  buildDeco(view: EditorView, style: HighlightStyle | null) {
     if (!style || !this.tree.length) return Decoration.none
 
     let builder = new RangeSetBuilder<Decoration>()
@@ -325,6 +319,12 @@ class TreeHighlighter {
     return builder.finish()
   }
 }
+
+// This extension installs a highlighter that highlights based on the
+// syntax tree and highlight style.
+const treeHighlighter = Prec.fallback(ViewPlugin.fromClass(TreeHighlighter, {
+  decorations: v => v.decorations
+}))
 
 // Reused stacks for highlightTreeRange
 const nodeStack = [""], classStack = [""], inheritStack = [""]
