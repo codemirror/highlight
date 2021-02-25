@@ -394,7 +394,7 @@ function matchContext(context: readonly (null | string)[], stack: readonly strin
 
 const t = Tag.define
 
-const comment = t(), name = t(),
+const comment = t(), name = t(), typeName = t(name),
   literal = t(), string = t(literal), number = t(literal),
   content = t(), heading = t(content), keyword = t(), operator = t(),
   punctuation = t(), bracket = t(punctuation), meta = t()
@@ -432,8 +432,10 @@ export const tags = {
   name,
   /// The [name](#highlight.tags.name) of a variable.
   variableName: t(name),
-  /// A type or tag [name](#highlight.tags.name).
-  typeName: t(name),
+  /// A type [name](#highlight.tags.name).
+  typeName: typeName,
+  /// A tag name (subtag of [`typeName`](#highlight.tags.typeName)).
+  tagName: t(typeName),
   /// A property, field, or attribute [name](#highlight.tags.name).
   propertyName: t(name),
   /// The [name](#highlight.tags.name) of a class.
