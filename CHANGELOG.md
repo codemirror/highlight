@@ -1,3 +1,9 @@
+## 0.17.3 (2021-02-25)
+
+### New features
+
+There is now a separate style tag for (XML-style) tag names (still a subtag of `typeName`).
+
 ## 0.17.2 (2021-01-28)
 
 ### Bug fixes
