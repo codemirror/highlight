@@ -31,7 +31,7 @@
     "@codemirror/state": "^0.17.0",
     "@codemirror/view": "^0.17.0",
     "lezer-tree": "^0.13.0",
-    "style-mod": "^3.2.0"
+    "style-mod": "^4.0.0"
   },
   "devDependencies": {
     "rollup": "^2.35.1",
