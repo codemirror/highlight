@@ -237,25 +237,29 @@ export class HighlightStyle {
   /// A style module holding the CSS rules for this highlight style.
   /// When using [`highlightTree`](#highlight.highlightTree), you may
   /// want to manually mount this module to show the highlighting.
-  readonly module: StyleModule
+  readonly module: StyleModule | null
 
   /// @internal
   readonly map: {[tagID: number]: string | null} = Object.create(null)
 
   private constructor(spec: readonly (StyleSpec & {tag: Tag | readonly Tag[]})[]) {
-    let modSpec = Object.create(null)
+    let modSpec: {[name: string]: StyleSpec} | undefined
     for (let style of spec) {
-      let cls = StyleModule.newName()
-      modSpec["." + cls] = Object.assign({}, style, {tag: null})
+      let cls = style.class as string
+      if (!cls) {
+        cls = StyleModule.newName()
+        ;(modSpec || (modSpec = Object.create(null)))["." + cls] = Object.assign({}, style, {tag: null})
+      }
       let tags = style.tag
-      if (!Array.isArray(tags)) tags = [tags as Tag]
-      for (let tag of tags) this.map[tag.id] = cls
+      if (!Array.isArray(tags)) this.map[(tags as Tag).id] = cls
+      else for (let tag of tags) this.map[tag.id] = cls
     }
-    this.module = new StyleModule(modSpec)
+    this.module = modSpec ? new StyleModule(modSpec) : null
     this.match = this.match.bind(this)
-    let styleModule = EditorView.styleModule.of(this.module)
-    this.extension = [treeHighlighter, highlightStyle.of(this), styleModule]
-    this.fallback = [treeHighlighter, fallbackHighlightStyle.of(this), styleModule]
+    let ext = [treeHighlighter]
+    if (this.module) ext.push(EditorView.styleModule.of(this.module))
+    this.extension = ext.concat(highlightStyle.of(this))
+    this.fallback = ext.concat(fallbackHighlightStyle.of(this))
   }
 
   /// Returns the CSS class associated with the given tag, if any.
@@ -273,10 +277,12 @@ export class HighlightStyle {
 
   /// Create a highlighter style that associates the given styles to
   /// the given tags. The spec must be objects that hold a style tag
-  /// or array of tags in their `tag` property, and
+  /// or array of tags in their `tag` property, and either a single
+  /// `class` property providing a static CSS class (for highlighters
+  /// like [`classHighlightStyle`](#highlight.classHighlightStyle)
+  /// that rely on external styling), or a
   /// [`style-mod`](https://github.com/marijnh/style-mod#documentation)-style
-  /// CSS properties in further properties (which define the styling
-  /// for those tags).
+  /// set of CSS properties (which define the styling for those tags).
   ///
   /// The CSS rules created for a highlighter will be emitted in the
   /// order of the spec's properties. That means that for elements that
@@ -688,7 +694,7 @@ export const defaultHighlightStyle = HighlightStyle.define(
    color: "#085"},
   {tag: tags.className,
    color: "#167"},
-  {tag: [tags.special(tags.variableName), tags.macroName, tags.local(tags.variableName)],
+  {tag: [tags.special(tags.variableName), tags.macroName],
    color: "#256"},
   {tag: tags.definition(tags.propertyName),
    color: "#00c"},
@@ -698,4 +704,77 @@ export const defaultHighlightStyle = HighlightStyle.define(
    color: "#7a757a"},
   {tag: tags.invalid,
    color: "#f00"}
+)
+
+/// This is a highlight style that adds stable, predictable classes to
+/// tokens, for styling with external CSS.
+///
+/// These tags are mapped to their name prefixed with `"cmt-"` (for
+/// example `"cmt-comment"`):
+///
+/// * [`link`](#highlight.tags.link)
+/// * [`heading`](#highlight.tags.heading)
+/// * [`emphasis`](#highlight.tags.emphasis)
+/// * [`strong`](#highlight.tags.strong)
+/// * [`keyword`](#highlight.tags.keyword)
+/// * [`atom`](#highlight.tags.atom) [`bool`](#highlight.tags.bool)
+/// * [`url`](#highlight.tags.url)
+/// * [`labelName`](#highlight.tags.labelName)
+/// * [`inserted`](#highlight.tags.inserted)
+/// * [`deleted`](#highlight.tags.deleted)
+/// * [`literal`](#highlight.tags.literal)
+/// * [`string`](#highlight.tags.string)
+/// * [`number`](#highlight.tags.number)
+/// * [`variableName`](#highlight.tags.variableName)
+/// * [`typeName`](#highlight.tags.typeName)
+/// * [`namespace`](#highlight.tags.namespace)
+/// * [`macroName`](#highlight.tags.macroName)
+/// * [`propertyName`](#highlight.tags.propertyName)
+/// * [`operator`](#highlight.tags.operator)
+/// * [`comment`](#highlight.tags.comment)
+/// * [`meta`](#highlight.tags.meta)
+/// * [`punctuation`](#highlight.tags.puncutation)
+/// * [`invalid`](#highlight.tags.invalid)
+///
+/// In addition, these mappings are provided:
+///
+/// * [`regexp`](#highlight.tags.regexp),
+///   [`escape`](#highlight.tags.escape), and
+///   [`special`](#highlight.tags.special)[`(string)`](#highlight.tags.string)
+///   are mapped to `"cmt-string2"`
+/// * [`special`](#highlight.tags.special)[`(variableName)`](#highlight.tags.variableName)
+///   to `"cmt-variableName2"`
+/// * [`local`](#highlight.tags.local)[`(variableName)`](#highlight.tags.variableName)
+///   to `"cmt-variableName cmt-local"`
+/// * [`definition`](#highlight.tags.definition)[`(variableName)`](#highlight.tags.variableName)
+///   to `"cmt-variableName cmt-definition"`
+export const classHighlightStyle = HighlightStyle.define(
+  {tag: tags.link, class: "cmt-link"},
+  {tag: tags.heading, class: "cmt-heading"},
+  {tag: tags.emphasis, class: "cmt-emphasis"},
+  {tag: tags.strong, class: "cmt-strong"},
+  {tag: tags.keyword, class: "cmt-keyword"},
+  {tag: tags.atom, class: "cmt-atom"},
+  {tag: tags.bool, class: "cmt-bool"},
+  {tag: tags.url, class: "cmt-url"},
+  {tag: tags.labelName, class: "cmt-labelName"},
+  {tag: tags.inserted, class: "cmt-inserted"},
+  {tag: tags.deleted, class: "cmt-deleted"},
+  {tag: tags.literal, class: "cmt-literal"},
+  {tag: tags.string, class: "cmt-string"},
+  {tag: tags.number, class: "cmt-number"},
+  {tag: [tags.regexp, tags.escape, tags.special(tags.string)], class: "cmt-string2"},
+  {tag: tags.variableName, class: "cmt-variableName"},
+  {tag: tags.local(tags.variableName), class: "cmt-variableName cmt-local"},
+  {tag: tags.definition(tags.variableName), class: "cmt-variableName cmt-definition"},
+  {tag: tags.special(tags.variableName), class: "cmt-variableName2"},
+  {tag: tags.typeName, class: "cmt-typeName"},
+  {tag: tags.namespace, class: "cmt-namespace"},
+  {tag: tags.macroName, class: "cmt-macroName"},
+  {tag: tags.propertyName, class: "cmt-propertyName"},
+  {tag: tags.operator, class: "cmt-operator"},
+  {tag: tags.comment, class: "cmt-comment"},
+  {tag: tags.meta, class: "cmt-meta"},
+  {tag: tags.invalid, class: "cmt-invalid"},
+  {tag: tags.punctuation, class: "cmt-punctuation"}
 )
