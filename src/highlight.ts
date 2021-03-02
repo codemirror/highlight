@@ -2,8 +2,11 @@ import {Tree, NodeProp} from "lezer-tree"
 import {StyleSpec, StyleModule} from "style-mod"
 import {EditorView, ViewPlugin, ViewUpdate, Decoration, DecorationSet} from "@codemirror/view"
 import {Extension, Prec, Facet} from "@codemirror/state"
-import {syntaxTree} from "@codemirror/language"
+import {syntaxTree, languageDataProp, Language} from "@codemirror/language"
 import {RangeSetBuilder} from "@codemirror/rangeset"
+
+const languageTags = new WeakMap<Facet<any>, Tag>()
+let usingLanguageTags = false
 
 let nextTagID = 0
 
@@ -69,6 +72,13 @@ export class Tag {
       if (tag.modified.indexOf(mod) > -1) return tag
       return Modifier.get(tag.base || tag, tag.modified.concat(mod).sort((a, b) => a.id - b.id))
     }
+  }
+
+  static forLanguage(language: Language) {
+    usingLanguageTags = true
+    let known = languageTags.get(language.data)
+    if (!known) languageTags.set(language.data, known = Tag.define())
+    return known
   }
 }
 
@@ -365,7 +375,7 @@ function highlightTreeRange(tree: Tree, from: number, to: number,
       depth++
       let inheritedClass = inheritStack[depth - 1]
       let cls = inheritedClass
-      let rule = type.prop(ruleNodeProp), opaque = false
+      let rule = type.prop(ruleNodeProp), opaque = false, lang, langTag
       while (rule) {
         if (!rule.context || matchContext(rule.context, nodeStack, depth)) {
           for (let tag of rule.tags) {
@@ -373,13 +383,20 @@ function highlightTreeRange(tree: Tree, from: number, to: number,
             if (st) {
               if (cls) cls += " "
               cls += st
-              if (rule.mode == Mode.Inherit) inheritedClass = cls
+              if (rule.mode == Mode.Inherit) inheritedClass += (inheritedClass ? " " : "") + st
               else if (rule.mode == Mode.Opaque) opaque = true
             }
           }
           break
         }
         rule = rule.next
+      }
+      if (usingLanguageTags && (lang = type.prop(languageDataProp)) && (langTag = languageTags.get(lang))) {
+        let st = style(langTag)
+        if (st) {
+          cls += (cls ? " " : "") + st
+          inheritedClass += (inheritedClass ? " " : "") + cls
+        }
       }
       if (cls != spanClass) {
         if (start > spanStart && spanClass) span(spanStart, start, spanClass)
@@ -393,7 +410,6 @@ function highlightTreeRange(tree: Tree, from: number, to: number,
       classStack[depth] = cls
       inheritStack[depth] = inheritedClass
       nodeStack[depth] = type.name
-      return undefined
     },
     leave: (_t, _s, end) => {
       depth--
