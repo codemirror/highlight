@@ -183,8 +183,12 @@ export function styleTags(spec: {[selector: string]: Tag | readonly Tag[]}) {
 
 const ruleNodeProp = new NodeProp<Rule>()
 
-const highlightStyleProp = Facet.define<HighlightStyle, HighlightStyle | null>({
-  combine(stylings) { return stylings.length ? stylings[0] : null }
+const highlightStyle = Facet.define<HighlightStyle, ((tag: Tag) => string | null) | null>({
+  combine(stylings) { return stylings.length ? combineMatch(stylings) : null }
+})
+
+const fallbackHighlightStyle = Facet.define<HighlightStyle, ((tag: Tag) => string | null) | null>({
+  combine(values) { return values.length ? values[0].match : null }
 })
 
 const enum Mode { Opaque, Inherit, Normal }
@@ -210,15 +214,23 @@ class Rule {
 /// A highlight style associates CSS styles with higlighting
 /// [tags](#highlight.Tag).
 export class HighlightStyle {
-  /// Extension that registers this style with an editor.
+  /// Extension that registers this style with an editor. When
+  /// multiple highlight styles are given, they _all_ apply, assigning
+  /// the combination of their matching styles to tokens.
   readonly extension: Extension
+
+  /// An extension that installs this highlighter as a fallback
+  /// highlight style, which will only be used if no other highlight
+  /// styles are configured.
+  readonly fallback: Extension
 
   /// A style module holding the CSS rules for this highlight style.
   /// When using [`highlightTree`](#highlight.highlightTree), you may
   /// want to manually mount this module to show the highlighting.
   readonly module: StyleModule
 
-  private map: {[tagID: number]: string | null} = Object.create(null)
+  /// @internal
+  readonly map: {[tagID: number]: string | null} = Object.create(null)
 
   private constructor(spec: readonly (StyleSpec & {tag: Tag | readonly Tag[]})[]) {
     let modSpec = Object.create(null)
@@ -231,11 +243,9 @@ export class HighlightStyle {
     }
     this.module = new StyleModule(modSpec)
     this.match = this.match.bind(this)
-    this.extension = [
-      treeHighlighter,
-      highlightStyleProp.of(this),
-      EditorView.styleModule.of(this.module)
-    ]
+    let styleModule = EditorView.styleModule.of(this.module)
+    this.extension = [treeHighlighter, highlightStyle.of(this), styleModule]
+    this.fallback = [treeHighlighter, fallbackHighlightStyle.of(this), styleModule]
   }
 
   /// Returns the CSS class associated with the given tag, if any.
@@ -243,7 +253,7 @@ export class HighlightStyle {
   match(tag: Tag) {
     for (let t of tag.set) {
       let match = this.map[t.id]
-      if (match) {
+      if (match !== undefined) {
         if (t != tag) this.map[tag.id] = match
         return match
       }
@@ -265,6 +275,21 @@ export class HighlightStyle {
   /// defined earlier.
   static define(...specs: readonly {tag: Tag | readonly Tag[], [prop: string]: any}[]) {
     return new HighlightStyle(specs)
+  }
+}
+
+function combineMatch(styles: readonly HighlightStyle[]) {
+  if (styles.length == 1) return styles[0].match
+  let cache = Object.create(null)
+  return (tag: Tag) => {
+    let cached = cache[tag.id]
+    if (cached !== undefined) return cached
+    let result = null
+    for (let style of styles) {
+      let value = style.match(tag)
+      if (value) result = result ? result + " " + value : value
+    }
+    return cache[tag.id] = result
   }
 }
 
@@ -293,12 +318,12 @@ class TreeHighlighter {
 
   constructor(view: EditorView) {
     this.tree = syntaxTree(view.state)
-    this.decorations = this.buildDeco(view, view.state.facet(highlightStyleProp))
+    this.decorations = this.buildDeco(view, view.state.facet(highlightStyle) || view.state.facet(fallbackHighlightStyle))
   }
 
   update(update: ViewUpdate) {
-    let tree = syntaxTree(update.state), style = update.state.facet(highlightStyleProp)
-    let styleChange = style != update.startState.facet(highlightStyleProp)
+    let tree = syntaxTree(update.state), style = update.state.facet(highlightStyle)
+    let styleChange = style != update.startState.facet(highlightStyle)
     if (tree.length < update.view.viewport.to && !styleChange) {
       this.decorations = this.decorations.map(update.changes)
     } else if (tree != this.tree || update.viewportChanged || styleChange) {
@@ -307,12 +332,12 @@ class TreeHighlighter {
     }
   }
 
-  buildDeco(view: EditorView, style: HighlightStyle | null) {
-    if (!style || !this.tree.length) return Decoration.none
+  buildDeco(view: EditorView, match: ((tag: Tag) => string | null) | null) {
+    if (!match || !this.tree.length) return Decoration.none
 
     let builder = new RangeSetBuilder<Decoration>()
     for (let {from, to} of view.visibleRanges) {
-      highlightTreeRange(this.tree, from, to, style.match, (from, to, style) => {
+      highlightTreeRange(this.tree, from, to, match, (from, to, style) => {
         builder.add(from, to, this.markCache[style] || (this.markCache[style] = Decoration.mark({class: style})))
       })
     }
