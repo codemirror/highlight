@@ -1,11 +1,9 @@
-import {Tree, TreeCursor, NodeProp} from "lezer-tree"
+import {Tree, NodeType, NodeProp} from "lezer-tree"
 import {StyleSpec, StyleModule} from "style-mod"
 import {EditorView, ViewPlugin, ViewUpdate, Decoration, DecorationSet} from "@codemirror/view"
 import {Extension, Prec, Facet} from "@codemirror/state"
-import {syntaxTree, languageDataProp, Language} from "@codemirror/language"
+import {syntaxTree} from "@codemirror/language"
 import {RangeSetBuilder} from "@codemirror/rangeset"
-
-const languageTags = new WeakMap<Facet<any>, Tag>()
 
 let nextTagID = 0
 
@@ -71,12 +69,6 @@ export class Tag {
       if (tag.modified.indexOf(mod) > -1) return tag
       return Modifier.get(tag.base || tag, tag.modified.concat(mod).sort((a, b) => a.id - b.id))
     }
-  }
-
-  static forLanguage(language: Language) {
-    let known = languageTags.get(language.data)
-    if (!known) languageTags.set(language.data, known = Tag.define())
-    return known
   }
 }
 
@@ -191,11 +183,11 @@ export function styleTags(spec: {[selector: string]: Tag | readonly Tag[]}) {
 
 const ruleNodeProp = new NodeProp<Rule>()
 
-const highlightStyle = Facet.define<HighlightStyle, ((tag: Tag) => string | null) | null>({
-  combine(stylings) { return stylings.length ? combineMatch(stylings) : null }
+const highlightStyle = Facet.define<HighlightStyle, ((tag: Tag, scope: NodeType) => string | null) | null>({
+  combine(stylings) { return stylings.length ? HighlightStyle.combinedMatch(stylings) : null }
 })
 
-const fallbackHighlightStyle = Facet.define<HighlightStyle, ((tag: Tag) => string | null) | null>({
+const fallbackHighlightStyle = Facet.define<HighlightStyle, ((tag: Tag, scope: NodeType) => string | null) | null>({
   combine(values) { return values.length ? values[0].match : null }
 })
 
@@ -237,23 +229,30 @@ export class HighlightStyle {
   /// want to manually mount this module to show the highlighting.
   readonly module: StyleModule | null
 
-  /// @internal
-  readonly map: {[tagID: number]: string | null} = Object.create(null)
+  private map: {[tagID: number]: string | null} = Object.create(null)
+  private scope: NodeType | null
+  private all: string | null 
 
-  private constructor(spec: readonly (StyleSpec & {tag: Tag | readonly Tag[]})[],
-                      options: {scope?: Language}) {
+  private constructor(spec: readonly TagStyle[],
+                      options: {scope?: NodeType, all?: string | StyleSpec}) {
     let modSpec: {[name: string]: StyleSpec} | undefined
+    function def(spec: StyleSpec) {
+      let cls = StyleModule.newName()
+      ;(modSpec || (modSpec = Object.create(null)))["." + cls] = spec
+      return cls
+    }
+    this.all = typeof options.all == "string" ? options.all : options.all ? def(options.all) : null
+
     for (let style of spec) {
-      let cls = style.class as string
-      if (!cls) {
-        cls = StyleModule.newName()
-        ;(modSpec || (modSpec = Object.create(null)))["." + cls] = Object.assign({}, style, {tag: null})
-      }
+      let cls = (style.class as string || def(Object.assign({}, style, {tag: null}))) +
+        (this.all ? " " + this.all : "")
       let tags = style.tag
       if (!Array.isArray(tags)) this.map[(tags as Tag).id] = cls
       else for (let tag of tags) this.map[tag.id] = cls
     }
+
     this.module = modSpec ? new StyleModule(modSpec) : null
+    this.scope = options.scope || null
     this.match = this.match.bind(this)
     let ext = [treeHighlighter]
     if (this.module) ext.push(EditorView.styleModule.of(this.module))
@@ -263,7 +262,8 @@ export class HighlightStyle {
 
   /// Returns the CSS class associated with the given tag, if any.
   /// This method is bound to the instance by the constructor.
-  match(tag: Tag) {
+  match(tag: Tag, scope: NodeType) {
+    if (this.scope && scope != this.scope) return null
     for (let t of tag.set) {
       let match = this.map[t.id]
       if (match !== undefined) {
@@ -271,7 +271,26 @@ export class HighlightStyle {
         return match
       }
     }
-    return this.map[tag.id] = null
+    return this.map[tag.id] = this.all
+  }
+
+  /// Combines an array of highlight styles into a single match
+  /// function that returns all of the classes assigned by the styles
+  /// for a given tag.
+  static combinedMatch(styles: readonly HighlightStyle[]) {
+    if (styles.length == 1) return styles[0].match
+    let cache = styles.some(s => s.scope) ? undefined : Object.create(null)
+    return (tag: Tag, scope: NodeType) => {
+      let cached = cache && cache[tag.id]
+      if (cached !== undefined) return cached
+      let result = null
+      for (let style of styles) {
+        let value = style.match(tag, scope)
+        if (value) result = result ? result + " " + value : value
+      }
+      if (cache) cache[tag.id] = result
+      return result
+    }
   }
 
   /// Create a highlighter style that associates the given styles to
@@ -288,25 +307,35 @@ export class HighlightStyle {
   /// have multiple tags associated with them, styles defined further
   /// down in the list will have a higher CSS precedence than styles
   /// defined earlier.
-  static define(specs: readonly {tag: Tag | readonly Tag[], [prop: string]: any}[],
-                options?: {scope?: Language}) {
+  static define(specs: readonly TagStyle[], options?: {
+    /// By default, highlighters apply to the entire document. You can
+    /// scope them to a single language by providing the language's
+    /// [top node](#language.Language.topNode) here.
+    scope?: NodeType,
+    /// Add a style to _all_ content. Probably only useful in
+    /// combination with `scope`.
+    all?: string | StyleSpec
+  }) {
     return new HighlightStyle(specs, options || {})
   }
 }
 
-function combineMatch(styles: readonly HighlightStyle[]) {
-  if (styles.length == 1) return styles[0].match
-  let cache = Object.create(null)
-  return (tag: Tag) => {
-    let cached = cache[tag.id]
-    if (cached !== undefined) return cached
-    let result = null
-    for (let style of styles) {
-      let value = style.match(tag)
-      if (value) result = result ? result + " " + value : value
-    }
-    return cache[tag.id] = result
-  }
+/// The type of object used in
+/// [`HighlightStyle.define`](#highlight.HighlightStyle^define).
+/// Assigns a style to one or more highlighting
+/// [tags](#highlight.Tag), which can either be a fixed class name
+/// (which must be defined elsewhere), or a set of CSS properties, for
+/// which the library will define an anonymous class.
+export interface TagStyle {
+  /// The tag or tags to target.
+  tag: Tag | readonly Tag[],
+  /// If given, this maps the tags to a fixed class name.
+  class?: string,
+  /// Any further properties (if `class` isn't given) will be
+  /// interpreted as in style objects given to
+  /// [style-mod](https://github.com/marijnh/style-mod#documentation).
+  /// The type here is `any` because of TypeScript limitations.
+  [styleProperty: string]: any
 }
 
 /// Given a string of code and a language, parse the code in that
@@ -318,7 +347,7 @@ export function highlightTree(
   /// or `null` if it isn't styled. (You'll often want to pass a
   /// highlight style's [`match`](#highlight.HighlightStyle.match)
   /// method here.)
-  getStyle: (tag: Tag) => string | null,
+  getStyle: (tag: Tag, scope: NodeType) => string | null,
   /// Assign styling to a region of the text. Will be called, in order
   /// of position, for any ranges where more than zero classes apply.
   /// `classes` is a space separated string of CSS classes.
@@ -348,7 +377,7 @@ class TreeHighlighter {
     }
   }
 
-  buildDeco(view: EditorView, match: ((tag: Tag) => string | null) | null) {
+  buildDeco(view: EditorView, match: ((tag: Tag, scope: NodeType) => string | null) | null) {
     if (!match || !this.tree.length) return Decoration.none
 
     let builder = new RangeSetBuilder<Decoration>()
@@ -370,26 +399,21 @@ const treeHighlighter = Prec.fallback(ViewPlugin.fromClass(TreeHighlighter, {
 const nodeStack = [""]
 
 function highlightTreeRange(tree: Tree, from: number, to: number,
-                            style: (tag: Tag) => string | null,
+                            style: (tag: Tag, scope: NodeType) => string | null,
                             span: (from: number, to: number, cls: string) => void) {
   let spanStart = from, spanClass = ""
+  let cursor = tree.topNode.cursor
 
-  function node(cursor: TreeCursor, inheritedClass: string, depth: number) {
-    nodeStack[depth] = cursor.type.name
-    let cls = inheritedClass, lang
-    if (lang = cursor.type.prop(languageDataProp)) {
-      let langTag = languageTags.get(lang)
-      let st = langTag && style(langTag)
-      if (st) {
-        cls += (cls ? " " : "") + st
-        inheritedClass += (inheritedClass ? " " : "") + cls
-      }
-    }
-    let rule = cursor.type.prop(ruleNodeProp), opaque = false
+  function node(inheritedClass: string, depth: number, scope: NodeType) {
+    let {type, from: start} = cursor
+    nodeStack[depth] = type.name
+    let cls = inheritedClass
+    if (type.isTop) scope = type
+    let rule = type.prop(ruleNodeProp), opaque = false
     while (rule) {
       if (!rule.context || matchContext(rule.context, nodeStack, depth)) {
         for (let tag of rule.tags) {
-          let st = style(tag)
+          let st = style(tag, scope)
           if (st) {
             if (cls) cls += " "
             cls += st
@@ -402,14 +426,14 @@ function highlightTreeRange(tree: Tree, from: number, to: number,
       rule = rule.next
     }
     if (cls != spanClass) {
-      if (cursor.from > spanStart && spanClass) span(spanStart, cursor.from, spanClass)
-      spanStart = cursor.from
+      if (start > spanStart && spanClass) span(spanStart, cursor.from, spanClass)
+      spanStart = start
       spanClass = cls
     }
     if (!opaque && cursor.firstChild()) {
       do {
         let end = cursor.to
-        node(cursor, inheritedClass, depth + 1)
+        node(inheritedClass, depth + 1, scope)
         if (spanClass != cls) {
           let pos = Math.min(to, end)
           if (pos > spanStart && spanClass) span(spanStart, pos, spanClass)
@@ -420,7 +444,7 @@ function highlightTreeRange(tree: Tree, from: number, to: number,
       cursor.parent()
     }
   }
-  node(tree.topNode.cursor, "", 0)
+  node("", 0, tree.type)
 }
 
 function matchContext(context: readonly (null | string)[], stack: readonly string[], depth: number) {

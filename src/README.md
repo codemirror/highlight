@@ -9,6 +9,8 @@ is styled appropriately.
 
 @HighlightStyle
 
+@TagStyle
+
 @highlightTree
 
 @defaultHighlightStyle

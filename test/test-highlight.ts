@@ -1,4 +1,5 @@
-import {classHighlightStyle, styleTags, tags as t, highlightTree} from "@codemirror/highlight"
+import {classHighlightStyle, HighlightStyle, Tag, styleTags, tags as t, highlightTree} from "@codemirror/highlight"
+import {Parser, NodeType} from "lezer"
 import {buildParser} from "lezer-generator"
 
 const parser = buildParser(`
@@ -36,7 +37,7 @@ const parser = buildParser(`
   props: [styleTags({
     Identifier: t.variableName,
     String: t.string,
-    Escape: t.escape,
+    StringEscape: t.escape,
     "Tag/...": t.literal,
     "Emphasis": t.emphasis,
     "( )": t.paren,
@@ -47,6 +48,17 @@ const parser = buildParser(`
     "Array!": t.atom,
     Comment: t.comment
   })]
+})
+
+const wrapper = buildParser(`
+@top Wrap { ("<<" nest.inner ">>")* }
+@external grammar inner from "./x"
+@tokens { "<<" ">>" }
+`, {
+  nestedParser() { return parser }
+}).configure({
+  strict: true,
+  props: [styleTags({"<< >>": t.angleBracket})]
 })
 
 function parseSpec(spec: string) {
@@ -63,11 +75,14 @@ function parseSpec(spec: string) {
   return {content, tokens}
 }
 
-function test(name: string, spec: string) {
+function test(name: string, spec: string, {parse = parser, highlight = classHighlightStyle.match}: {
+  parse?: Parser,
+  highlight?: (tag: Tag, scope: NodeType) => string | null
+} = {}) {
   it(name, () => {
     let {content, tokens} = parseSpec(spec[0] == "\n" ? spec.slice(1) : spec)
-    let tree = parser.parse(content), emit: {from: number, to: number, token: string}[] = []
-    highlightTree(tree, classHighlightStyle.match, (from, to, token) => {
+    let tree = parse.parse(content), emit: {from: number, to: number, token: string}[] = []
+    highlightTree(tree, highlight, (from, to, token) => {
       emit.push({from, to, token: token.replace(/\bcmt-/g, "").split(" ").sort().join(" ")})
     })
 
@@ -92,9 +107,28 @@ function test(name: string, spec: string) {
 describe("highlighting", () => {
   test("Styles basic tokens", `[punctuation:(][string:"hello"] [variableName:world][punctuation:)]`)
 
+  test("innermost tags take precedence", `[string:"hell][string2:\\o][string:"]`)
+
   test("styles opaque nodes", `[atom:{one two "three"}]`)
 
   test("adds inherited tags", `[punctuation literal:<][literal:foo][literal emphasis:*bar*][punctuation literal:>]`)
 
   test("supports hierarchical selectors", `[punctuation:{{][propertyName:foo] [operator:=>] [variableName:bar][punctuation:}}]`)
+
+  test("can specialize highlighters per language", `[outerPunc:<<]([innerVar:hello])[outerPunc:>>]`, {
+    parse: wrapper,
+    highlight: HighlightStyle.combinedMatch([
+      HighlightStyle.define([{tag: t.punctuation, class: "outerPunc"}], {scope: wrapper.topNode}),
+      HighlightStyle.define([{tag: t.variableName, class: "innerVar"}], {scope: parser.topNode})
+    ])
+  })
+
+  test("can use language-wide styles", `[outer punctuation:<<][inner string:"wow"][outer punctuation:>>]`, {
+    parse: wrapper,
+    highlight: HighlightStyle.combinedMatch([
+      classHighlightStyle,
+      HighlightStyle.define([], {scope: wrapper.topNode, all: "outer"}),
+      HighlightStyle.define([], {scope: parser.topNode, all: "inner"})
+    ])
+  })
 })
