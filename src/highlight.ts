@@ -1,4 +1,4 @@
-import {Tree, NodeProp} from "lezer-tree"
+import {Tree, TreeCursor, NodeProp} from "lezer-tree"
 import {StyleSpec, StyleModule} from "style-mod"
 import {EditorView, ViewPlugin, ViewUpdate, Decoration, DecorationSet} from "@codemirror/view"
 import {Extension, Prec, Facet} from "@codemirror/state"
@@ -6,7 +6,6 @@ import {syntaxTree, languageDataProp, Language} from "@codemirror/language"
 import {RangeSetBuilder} from "@codemirror/rangeset"
 
 const languageTags = new WeakMap<Facet<any>, Tag>()
-let usingLanguageTags = false
 
 let nextTagID = 0
 
@@ -75,7 +74,6 @@ export class Tag {
   }
 
   static forLanguage(language: Language) {
-    usingLanguageTags = true
     let known = languageTags.get(language.data)
     if (!known) languageTags.set(language.data, known = Tag.define())
     return known
@@ -242,7 +240,8 @@ export class HighlightStyle {
   /// @internal
   readonly map: {[tagID: number]: string | null} = Object.create(null)
 
-  private constructor(spec: readonly (StyleSpec & {tag: Tag | readonly Tag[]})[]) {
+  private constructor(spec: readonly (StyleSpec & {tag: Tag | readonly Tag[]})[],
+                      options: {scope?: Language}) {
     let modSpec: {[name: string]: StyleSpec} | undefined
     for (let style of spec) {
       let cls = style.class as string
@@ -289,8 +288,9 @@ export class HighlightStyle {
   /// have multiple tags associated with them, styles defined further
   /// down in the list will have a higher CSS precedence than styles
   /// defined earlier.
-  static define(specs: readonly {tag: Tag | readonly Tag[], [prop: string]: any}[]) {
-    return new HighlightStyle(specs)
+  static define(specs: readonly {tag: Tag | readonly Tag[], [prop: string]: any}[],
+                options?: {scope?: Language}) {
+    return new HighlightStyle(specs, options || {})
   }
 }
 
@@ -367,67 +367,60 @@ const treeHighlighter = Prec.fallback(ViewPlugin.fromClass(TreeHighlighter, {
   decorations: v => v.decorations
 }))
 
-// Reused stacks for highlightTreeRange
-const nodeStack = [""], classStack = [""], inheritStack = [""]
+const nodeStack = [""]
 
 function highlightTreeRange(tree: Tree, from: number, to: number,
-                       style: (tag: Tag) => string | null,
-                       span: (from: number, to: number, cls: string) => void) {
-  let spanStart = from, spanClass = "", depth = 0
+                            style: (tag: Tag) => string | null,
+                            span: (from: number, to: number, cls: string) => void) {
+  let spanStart = from, spanClass = ""
 
-  tree.iterate({
-    from, to,
-    enter: (type, start) => {
-      depth++
-      let inheritedClass = inheritStack[depth - 1]
-      let cls = inheritedClass
-      let rule = type.prop(ruleNodeProp), opaque = false, lang, langTag
-      while (rule) {
-        if (!rule.context || matchContext(rule.context, nodeStack, depth)) {
-          for (let tag of rule.tags) {
-            let st = style(tag)
-            if (st) {
-              if (cls) cls += " "
-              cls += st
-              if (rule.mode == Mode.Inherit) inheritedClass += (inheritedClass ? " " : "") + st
-              else if (rule.mode == Mode.Opaque) opaque = true
-            }
-          }
-          break
-        }
-        rule = rule.next
-      }
-      if (usingLanguageTags && (lang = type.prop(languageDataProp)) && (langTag = languageTags.get(lang))) {
-        let st = style(langTag)
-        if (st) {
-          cls += (cls ? " " : "") + st
-          inheritedClass += (inheritedClass ? " " : "") + cls
-        }
-      }
-      if (cls != spanClass) {
-        if (start > spanStart && spanClass) span(spanStart, start, spanClass)
-        spanStart = start
-        spanClass = cls
-      }
-      if (opaque) {
-        depth--
-        return false
-      }
-      classStack[depth] = cls
-      inheritStack[depth] = inheritedClass
-      nodeStack[depth] = type.name
-    },
-    leave: (_t, _s, end) => {
-      depth--
-      let backTo = classStack[depth]
-      if (backTo != spanClass) {
-        let pos = Math.min(to, end)
-        if (pos > spanStart && spanClass) span(spanStart, pos, spanClass)
-        spanStart = pos
-        spanClass = backTo
+  function node(cursor: TreeCursor, inheritedClass: string, depth: number) {
+    nodeStack[depth] = cursor.type.name
+    let cls = inheritedClass, lang
+    if (lang = cursor.type.prop(languageDataProp)) {
+      let langTag = languageTags.get(lang)
+      let st = langTag && style(langTag)
+      if (st) {
+        cls += (cls ? " " : "") + st
+        inheritedClass += (inheritedClass ? " " : "") + cls
       }
     }
-  })
+    let rule = cursor.type.prop(ruleNodeProp), opaque = false
+    while (rule) {
+      if (!rule.context || matchContext(rule.context, nodeStack, depth)) {
+        for (let tag of rule.tags) {
+          let st = style(tag)
+          if (st) {
+            if (cls) cls += " "
+            cls += st
+            if (rule.mode == Mode.Inherit) inheritedClass += (inheritedClass ? " " : "") + st
+            else if (rule.mode == Mode.Opaque) opaque = true
+          }
+        }
+        break
+      }
+      rule = rule.next
+    }
+    if (cls != spanClass) {
+      if (cursor.from > spanStart && spanClass) span(spanStart, cursor.from, spanClass)
+      spanStart = cursor.from
+      spanClass = cls
+    }
+    if (!opaque && cursor.firstChild()) {
+      do {
+        let end = cursor.to
+        node(cursor, inheritedClass, depth + 1)
+        if (spanClass != cls) {
+          let pos = Math.min(to, end)
+          if (pos > spanStart && spanClass) span(spanStart, pos, spanClass)
+          spanStart = pos
+          spanClass = cls
+        }
+      } while (cursor.nextSibling())
+      cursor.parent()
+    }
+  }
+  node(tree.topNode.cursor, "", 0)
 }
 
 function matchContext(context: readonly (null | string)[], stack: readonly string[], depth: number) {
