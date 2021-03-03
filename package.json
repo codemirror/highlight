@@ -1,6 +1,6 @@
 {
   "name": "@codemirror/highlight",
-  "version": "0.17.3",
+  "version": "0.18.0",
   "description": "Syntax highlighting for the CodeMirror code editor",
   "scripts": {
     "test": "mocha test/test-*.js",
@@ -26,10 +26,10 @@
   "sideEffects": false,
   "license": "MIT",
   "dependencies": {
-    "@codemirror/language": "^0.17.0",
-    "@codemirror/rangeset": "^0.17.0",
-    "@codemirror/state": "^0.17.0",
-    "@codemirror/view": "^0.17.0",
+    "@codemirror/language": "^0.18.0",
+    "@codemirror/rangeset": "^0.18.0",
+    "@codemirror/state": "^0.18.0",
+    "@codemirror/view": "^0.18.0",
     "lezer-tree": "^0.13.0",
     "style-mod": "^4.0.0"
   },

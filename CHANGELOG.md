@@ -1,3 +1,21 @@
+## 0.18.0 (2021-03-03)
+
+### Breaking changes
+
+When multiple highlight styles are available in an editor, they will be combined, instead of the highest-precedence one overriding the others.
+
+`HighlightStyle.define` now expects an array, not a variable list of arguments.
+
+### New features
+
+Highlight styles now have a `fallback` property that installs them as a fallback highlighter, which only takes effect if no other style is available.
+
+It is now possible to map style tags to static class names in `HighlightStyle` definitions with the `class` property.
+
+The new `classHighlightStyle` assigns a set of static classes to highlight tags, for use with external CSS.
+
+Highlight styles can now be scoped per language.
+
 ## 0.17.3 (2021-02-25)
 
 ### New features
