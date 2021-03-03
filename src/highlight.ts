@@ -289,7 +289,7 @@ export class HighlightStyle {
   /// have multiple tags associated with them, styles defined further
   /// down in the list will have a higher CSS precedence than styles
   /// defined earlier.
-  static define(...specs: readonly {tag: Tag | readonly Tag[], [prop: string]: any}[]) {
+  static define(specs: readonly {tag: Tag | readonly Tag[], [prop: string]: any}[]) {
     return new HighlightStyle(specs)
   }
 }
@@ -666,7 +666,7 @@ export const tags = {
 }
 
 /// A default highlight style (works well with light themes).
-export const defaultHighlightStyle = HighlightStyle.define(
+export const defaultHighlightStyle = HighlightStyle.define([
   {tag: tags.link,
    textDecoration: "underline"},
   {tag: tags.heading,
@@ -704,7 +704,7 @@ export const defaultHighlightStyle = HighlightStyle.define(
    color: "#7a757a"},
   {tag: tags.invalid,
    color: "#f00"}
-)
+])
 
 /// This is a highlight style that adds stable, predictable classes to
 /// tokens, for styling with external CSS.
@@ -748,7 +748,7 @@ export const defaultHighlightStyle = HighlightStyle.define(
 ///   to `"cmt-variableName cmt-local"`
 /// * [`definition`](#highlight.tags.definition)[`(variableName)`](#highlight.tags.variableName)
 ///   to `"cmt-variableName cmt-definition"`
-export const classHighlightStyle = HighlightStyle.define(
+export const classHighlightStyle = HighlightStyle.define([
   {tag: tags.link, class: "cmt-link"},
   {tag: tags.heading, class: "cmt-heading"},
   {tag: tags.emphasis, class: "cmt-emphasis"},
@@ -777,4 +777,4 @@ export const classHighlightStyle = HighlightStyle.define(
   {tag: tags.meta, class: "cmt-meta"},
   {tag: tags.invalid, class: "cmt-invalid"},
   {tag: tags.punctuation, class: "cmt-punctuation"}
-)
+])
