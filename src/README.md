@@ -15,4 +15,6 @@ is styled appropriately.
 
 @defaultHighlightStyle
 
+@classHighlightStyle
+
 @styleTags
