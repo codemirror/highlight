@@ -1,3 +1,9 @@
+## 0.18.1 (2021-03-04)
+
+### Bug fixes
+
+Fix a regression where the highlighter would walk the entire tree, not just the viewport, making editing of large documents slow.
+
 ## 0.18.0 (2021-03-03)
 
 ### Breaking changes
