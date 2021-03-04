@@ -191,10 +191,8 @@ const fallbackHighlightStyle = Facet.define<HighlightStyle, ((tag: Tag, scope: N
   combine(values) { return values.length ? values[0].match : null }
 })
 
-function noHighlight() { return null }
-
-function getHighlightStyle(state: EditorState): (tag: Tag, scope: NodeType) => string | null {
-  return state.facet(highlightStyle) || state.facet(fallbackHighlightStyle) || noHighlight
+function getHighlightStyle(state: EditorState): ((tag: Tag, scope: NodeType) => string | null) | null {
+  return state.facet(highlightStyle) || state.facet(fallbackHighlightStyle)
 }
 
 const enum Mode { Opaque, Inherit, Normal }
@@ -330,7 +328,8 @@ export class HighlightStyle {
   /// [tag](#highlight.Tag) and (optional) language
   /// [scope](#highlight.HighlightStyle^define^options.scope).
   static get(state: EditorState, tag: Tag, scope?: NodeType) {
-    return getHighlightStyle(state)(tag, scope || NodeType.none)
+    let style = getHighlightStyle(state)
+    return style && style(tag, scope || NodeType.none)
   }
 }
 
@@ -391,8 +390,8 @@ class TreeHighlighter {
     }
   }
 
-  buildDeco(view: EditorView, match: (tag: Tag, scope: NodeType) => string | null) {
-    if (match == noHighlight || !this.tree.length) return Decoration.none
+  buildDeco(view: EditorView, match: ((tag: Tag, scope: NodeType) => string | null) | null) {
+    if (!match || !this.tree.length) return Decoration.none
 
     let builder = new RangeSetBuilder<Decoration>()
     for (let {from, to} of view.visibleRanges) {
