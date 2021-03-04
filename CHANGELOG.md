@@ -1,3 +1,9 @@
+## 0.18.3 (2021-03-04)
+
+### New features
+
+The `HighlightStyle.get` function can now be used to find the classes that the active highlighters assign to a given style tag.
+
 ## 0.18.1 (2021-03-04)
 
 ### Bug fixes

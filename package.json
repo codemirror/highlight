@@ -1,6 +1,6 @@
 {
   "name": "@codemirror/highlight",
-  "version": "0.18.2",
+  "version": "0.18.3",
   "description": "Syntax highlighting for the CodeMirror code editor",
   "scripts": {
     "test": "mocha test/test-*.js",
