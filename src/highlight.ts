@@ -405,10 +405,12 @@ function highlightTreeRange(tree: Tree, from: number, to: number,
   let cursor = tree.topNode.cursor
 
   function node(inheritedClass: string, depth: number, scope: NodeType) {
-    let {type, from: start} = cursor
+    let {type, from: start, to: end} = cursor
+    if (start >= to || end <= from) return
     nodeStack[depth] = type.name
-    let cls = inheritedClass
     if (type.isTop) scope = type
+
+    let cls = inheritedClass
     let rule = type.prop(ruleNodeProp), opaque = false
     while (rule) {
       if (!rule.context || matchContext(rule.context, nodeStack, depth)) {
