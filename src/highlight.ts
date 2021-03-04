@@ -193,18 +193,8 @@ const fallbackHighlightStyle = Facet.define<HighlightStyle, ((tag: Tag, scope: N
 
 function noHighlight() { return null }
 
-function rawHighlightStyle(state: EditorState): (tag: Tag, scope: NodeType) => string | null {
+function getHighlightStyle(state: EditorState): (tag: Tag, scope: NodeType) => string | null {
   return state.facet(highlightStyle) || state.facet(fallbackHighlightStyle) || noHighlight
-}
-
-/// Returns a function that, given a style [tag](#highlight.Tag) and
-/// an optional language
-/// [scope](#highlight.HighlightStyle^define^options.scope), gives you
-/// a string containing the classes that the highlighters enabled in
-/// the state assign to that tag (if any).
-export function getHighlightStyle(state: EditorState): (tag: Tag, scope?: NodeType) => string | null {
-  let inner = rawHighlightStyle(state)
-  return (tag, scope = NodeType.none) => inner(tag, scope)
 }
 
 const enum Mode { Opaque, Inherit, Normal }
@@ -334,6 +324,14 @@ export class HighlightStyle {
   }) {
     return new HighlightStyle(specs, options || {})
   }
+
+  /// Returns the CSS classes (if any) that the highlight styles
+  /// active in the given state would assign to the given a style
+  /// [tag](#highlight.Tag) and (optional) language
+  /// [scope](#highlight.HighlightStyle^define^options.scope).
+  static get(state: EditorState, tag: Tag, scope?: NodeType) {
+    return getHighlightStyle(state)(tag, scope || NodeType.none)
+  }
 }
 
 /// The type of object used in
@@ -379,11 +377,11 @@ class TreeHighlighter {
 
   constructor(view: EditorView) {
     this.tree = syntaxTree(view.state)
-    this.decorations = this.buildDeco(view, rawHighlightStyle(view.state))
+    this.decorations = this.buildDeco(view, getHighlightStyle(view.state))
   }
 
   update(update: ViewUpdate) {
-    let tree = syntaxTree(update.state), style = rawHighlightStyle(update.state)
+    let tree = syntaxTree(update.state), style = getHighlightStyle(update.state)
     let styleChange = style != update.startState.facet(highlightStyle)
     if (tree.length < update.view.viewport.to && !styleChange) {
       this.decorations = this.decorations.map(update.changes)
