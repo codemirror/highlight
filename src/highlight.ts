@@ -1,7 +1,7 @@
 import {Tree, NodeType, NodeProp} from "lezer-tree"
 import {StyleSpec, StyleModule} from "style-mod"
 import {EditorView, ViewPlugin, ViewUpdate, Decoration, DecorationSet} from "@codemirror/view"
-import {Extension, Prec, Facet} from "@codemirror/state"
+import {EditorState, Extension, Prec, Facet} from "@codemirror/state"
 import {syntaxTree} from "@codemirror/language"
 import {RangeSetBuilder} from "@codemirror/rangeset"
 
@@ -191,6 +191,22 @@ const fallbackHighlightStyle = Facet.define<HighlightStyle, ((tag: Tag, scope: N
   combine(values) { return values.length ? values[0].match : null }
 })
 
+function noHighlight() { return null }
+
+function rawHighlightStyle(state: EditorState): (tag: Tag, scope: NodeType) => string | null {
+  return state.facet(highlightStyle) || state.facet(fallbackHighlightStyle) || noHighlight
+}
+
+/// Returns a function that, given a style [tag](#highlight.Tag) and
+/// an optional language
+/// [scope](#highlight.HighlightStyle^define^options.scope), gives you
+/// a string containing the classes that the highlighters enabled in
+/// the state assign to that tag (if any).
+export function getHighlightStyle(state: EditorState): (tag: Tag, scope?: NodeType) => string | null {
+  let inner = rawHighlightStyle(state)
+  return (tag, scope = NodeType.none) => inner(tag, scope)
+}
+
 const enum Mode { Opaque, Inherit, Normal }
 
 class Rule {
@@ -363,11 +379,11 @@ class TreeHighlighter {
 
   constructor(view: EditorView) {
     this.tree = syntaxTree(view.state)
-    this.decorations = this.buildDeco(view, view.state.facet(highlightStyle) || view.state.facet(fallbackHighlightStyle))
+    this.decorations = this.buildDeco(view, rawHighlightStyle(view.state))
   }
 
   update(update: ViewUpdate) {
-    let tree = syntaxTree(update.state), style = update.state.facet(highlightStyle)
+    let tree = syntaxTree(update.state), style = rawHighlightStyle(update.state)
     let styleChange = style != update.startState.facet(highlightStyle)
     if (tree.length < update.view.viewport.to && !styleChange) {
       this.decorations = this.decorations.map(update.changes)
@@ -377,8 +393,8 @@ class TreeHighlighter {
     }
   }
 
-  buildDeco(view: EditorView, match: ((tag: Tag, scope: NodeType) => string | null) | null) {
-    if (!match || !this.tree.length) return Decoration.none
+  buildDeco(view: EditorView, match: (tag: Tag, scope: NodeType) => string | null) {
+    if (match == noHighlight || !this.tree.length) return Decoration.none
 
     let builder = new RangeSetBuilder<Decoration>()
     for (let {from, to} of view.visibleRanges) {
