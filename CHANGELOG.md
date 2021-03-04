@@ -1,3 +1,9 @@
+## 0.18.2 (2021-03-04)
+
+### New features
+
+The new `getHighlightStyle` function provides a way for external code to query the styles that the active highlighters assign to a style tag.
+
 ## 0.18.1 (2021-03-04)
 
 ### Bug fixes
