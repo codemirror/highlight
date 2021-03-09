@@ -417,6 +417,12 @@ function highlightTreeRange(tree: Tree, from: number, to: number,
   let spanStart = from, spanClass = ""
   let cursor = tree.topNode.cursor
 
+  function flush(at: number, newClass: string) {
+    if (spanClass) span(spanStart, at, spanClass)
+    spanStart = at
+    spanClass = newClass
+  }
+
   function node(inheritedClass: string, depth: number, scope: NodeType) {
     let {type, from: start, to: end} = cursor
     if (start >= to || end <= from) return
@@ -440,26 +446,19 @@ function highlightTreeRange(tree: Tree, from: number, to: number,
       }
       rule = rule.next
     }
-    if (cls != spanClass) {
-      if (start > spanStart && spanClass) span(spanStart, cursor.from, spanClass)
-      spanStart = start
-      spanClass = cls
-    }
+    let upto = start
     if (!opaque && cursor.firstChild()) {
       do {
-        let end = cursor.to
+        if (cursor.from > upto && spanClass != cls) flush(upto, cls)
+        upto = cursor.to
         node(inheritedClass, depth + 1, scope)
-        if (spanClass != cls) {
-          let pos = Math.min(to, end)
-          if (pos > spanStart && spanClass) span(spanStart, pos, spanClass)
-          spanStart = pos
-          spanClass = cls
-        }
       } while (cursor.nextSibling())
       cursor.parent()
     }
+    if (end > upto && spanClass != cls) flush(upto, cls)
   }
   node("", 0, tree.type)
+  flush(to, "")
 }
 
 function matchContext(context: readonly (null | string)[], stack: readonly string[], depth: number) {
