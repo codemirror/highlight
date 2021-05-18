@@ -1,3 +1,9 @@
+## 0.18.4 (2021-05-18)
+
+### New features
+
+Add a `strikethrough` style tag to `tags`.
+
 ## 0.18.3 (2021-03-04)
 
 ### New features
