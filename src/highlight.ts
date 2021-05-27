@@ -405,7 +405,7 @@ class TreeHighlighter {
 
 // This extension installs a highlighter that highlights based on the
 // syntax tree and highlight style.
-const treeHighlighter = Prec.fallback(ViewPlugin.fromClass(TreeHighlighter, {
+const treeHighlighter = Prec.extend(ViewPlugin.fromClass(TreeHighlighter, {
   decorations: v => v.decorations
 }))
 
