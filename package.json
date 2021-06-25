@@ -30,7 +30,7 @@
     "@codemirror/rangeset": "^0.18.0",
     "@codemirror/state": "^0.18.0",
     "@codemirror/view": "^0.18.0",
-    "lezer-tree": "^0.13.0",
+    "@lezer/common": "^0.14.0",
     "style-mod": "^4.0.0"
   },
   "devDependencies": {

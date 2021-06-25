@@ -1,4 +1,4 @@
-import {Tree, NodeType, NodeProp} from "lezer-tree"
+import {Tree, NodeType, NodeProp} from "@lezer/common"
 import {StyleSpec, StyleModule} from "style-mod"
 import {EditorView, ViewPlugin, ViewUpdate, Decoration, DecorationSet} from "@codemirror/view"
 import {EditorState, Extension, Prec, Facet} from "@codemirror/state"
@@ -105,14 +105,14 @@ function permute<T>(array: readonly T[]): (readonly T[])[] {
 
 /// This function is used to add a set of tags to a language syntax
 /// via
-/// [`Parser.configure`](https://lezer.codemirror.net/docs/ref#lezer.Parser.configure).
+/// [`LRParser.configure`](https://lezer.codemirror.net/docs/ref#lr.LRParser.configure).
 ///
 /// The argument object maps node selectors to [highlighting
 /// tags](#highlight.Tag) or arrays of tags.
 ///
 /// Node selectors may hold one or more (space-separated) node paths.
 /// Such a path can be a [node
-/// name](https://lezer.codemirror.net/docs/ref#tree.NodeType.name),
+/// name](https://lezer.codemirror.net/docs/ref#common.NodeType.name),
 /// or multiple node names (or `*` wildcards) separated by slash
 /// characters, as in `"Block/Declaration/VariableName"`. Such a path
 /// matches the final node but only if its direct parent nodes are the

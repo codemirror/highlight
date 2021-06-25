@@ -1,6 +1,7 @@
 import {classHighlightStyle, HighlightStyle, Tag, styleTags, tags as t, highlightTree} from "@codemirror/highlight"
-import {Parser, NodeType} from "lezer"
-import {buildParser} from "lezer-generator"
+import {NodeType} from "@lezer/common"
+import {LRParser} from "@lezer/lr"
+import {buildParser} from "@lezer/generator"
 
 const parser = buildParser(`
   @top Program { form* }
@@ -50,15 +51,18 @@ const parser = buildParser(`
   })]
 })
 
-const wrapper = buildParser(`
-@top Wrap { ("<<" nest.inner ">>")* }
-@external grammar inner from "./x"
-@tokens { "<<" ">>" }
-`, {
-  nestedParser() { return parser }
-}).configure({
+let wrapper = buildParser(`
+@top Wrap { ("<<" Content ">>")* }
+@tokens {
+  Content { ![>]+ }
+  "<<" ">>"
+}`)
+wrapper = wrapper.configure({
   strict: true,
-  props: [styleTags({"<< >>": t.angleBracket})]
+  props: [styleTags({"<< >>": t.angleBracket})],
+  nested: {
+    [(wrapper as any).termTable.Content]: () => parser
+  }
 })
 
 function parseSpec(spec: string) {
@@ -76,12 +80,12 @@ function parseSpec(spec: string) {
 }
 
 function test(name: string, spec: string, {parse = parser, highlight = classHighlightStyle.match}: {
-  parse?: Parser,
+  parse?: LRParser,
   highlight?: (tag: Tag, scope: NodeType) => string | null
 } = {}) {
   it(name, () => {
     let {content, tokens} = parseSpec(spec[0] == "\n" ? spec.slice(1) : spec)
-    let tree = parse.parse(content), emit: {from: number, to: number, token: string}[] = []
+    let tree = parse.parse({input: content}), emit: {from: number, to: number, token: string}[] = []
     highlightTree(tree, highlight, (from, to, token) => {
       emit.push({from, to, token: token.replace(/\bcmt-/g, "").split(" ").sort().join(" ")})
     })
