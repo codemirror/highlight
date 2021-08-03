@@ -1,6 +1,6 @@
 import {classHighlightStyle, HighlightStyle, Tag, styleTags, tags as t, highlightTree} from "@codemirror/highlight"
-import {NodeType} from "@lezer/common"
-import {LRParser} from "@lezer/lr"
+import {NodeType, Parser} from "@lezer/common"
+import {MixParser} from "@lezer/mix"
 import {buildParser} from "@lezer/generator"
 
 const parser = buildParser(`
@@ -56,13 +56,12 @@ let wrapper = buildParser(`
 @tokens {
   Content { ![>]+ }
   "<<" ">>"
-}`)
-wrapper = wrapper.configure({
+}`).configure({
   strict: true,
-  props: [styleTags({"<< >>": t.angleBracket})],
-  nested: {
-    [(wrapper as any).termTable.Content]: () => parser
-  }
+  props: [styleTags({"<< >>": t.angleBracket})]
+})
+let full = new MixParser(wrapper, node => {
+  return node.name == "Content" ? {parser} : null
 })
 
 function parseSpec(spec: string) {
@@ -80,12 +79,12 @@ function parseSpec(spec: string) {
 }
 
 function test(name: string, spec: string, {parse = parser, highlight = classHighlightStyle.match}: {
-  parse?: LRParser,
+  parse?: Parser,
   highlight?: (tag: Tag, scope: NodeType) => string | null
 } = {}) {
   it(name, () => {
     let {content, tokens} = parseSpec(spec[0] == "\n" ? spec.slice(1) : spec)
-    let tree = parse.parse({input: content}), emit: {from: number, to: number, token: string}[] = []
+    let tree = parse.parse(content), emit: {from: number, to: number, token: string}[] = []
     highlightTree(tree, highlight, (from, to, token) => {
       emit.push({from, to, token: token.replace(/\bcmt-/g, "").split(" ").sort().join(" ")})
     })
@@ -120,7 +119,7 @@ describe("highlighting", () => {
   test("supports hierarchical selectors", `[punctuation:{{][propertyName:foo] [operator:=>] [variableName:bar][punctuation:}}]`)
 
   test("can specialize highlighters per language", `[outerPunc:<<]([innerVar:hello])[outerPunc:>>]`, {
-    parse: wrapper,
+    parse: full,
     highlight: HighlightStyle.combinedMatch([
       HighlightStyle.define([{tag: t.punctuation, class: "outerPunc"}], {scope: wrapper.topNode}),
       HighlightStyle.define([{tag: t.variableName, class: "innerVar"}], {scope: parser.topNode})
@@ -128,7 +127,7 @@ describe("highlighting", () => {
   })
 
   test("can use language-wide styles", `[outer punctuation:<<][inner string:"wow"][outer punctuation:>>]`, {
-    parse: wrapper,
+    parse: full,
     highlight: HighlightStyle.combinedMatch([
       classHighlightStyle,
       HighlightStyle.define([], {scope: wrapper.topNode, all: "outer"}),
