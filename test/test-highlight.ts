@@ -1,6 +1,5 @@
 import {classHighlightStyle, HighlightStyle, Tag, styleTags, tags as t, highlightTree} from "@codemirror/highlight"
-import {NodeType, Parser} from "@lezer/common"
-import {MixParser} from "@lezer/mix"
+import {NodeType, Parser, parseMixed} from "@lezer/common"
 import {buildParser} from "@lezer/generator"
 
 const parser = buildParser(`
@@ -52,16 +51,24 @@ const parser = buildParser(`
 })
 
 let wrapper = buildParser(`
-@top Wrap { ("<<" Content ">>")* }
+@top Wrap { ("<<" Content ">>" | Interpolation)* }
+Interpolation { "{" (dots | "{" InterpolationContent "}")* "}" }
 @tokens {
   Content { ![>]+ }
-  "<<" ">>"
+  InterpolationContent { ![}]+ }
+  dots { "."+ }
+  "<<" ">>" "{" "}"
 }`).configure({
   strict: true,
-  props: [styleTags({"<< >>": t.angleBracket})]
-})
-let full = new MixParser(wrapper, node => {
-  return node.name == "Content" ? {parser} : null
+  props: [styleTags({
+    "<< >>": t.angleBracket,
+    "{ }": t.brace
+  })],
+  wrap: parseMixed(node => {
+    return node.name == "Content" ? {parser}
+      :  node.name == "Interpolation" ? {parser, overlay: c => c.name == "InterpolationContent"}
+      : null
+  })
 })
 
 function parseSpec(spec: string) {
@@ -119,7 +126,7 @@ describe("highlighting", () => {
   test("supports hierarchical selectors", `[punctuation:{{][propertyName:foo] [operator:=>] [variableName:bar][punctuation:}}]`)
 
   test("can specialize highlighters per language", `[outerPunc:<<]([innerVar:hello])[outerPunc:>>]`, {
-    parse: full,
+    parse: wrapper,
     highlight: HighlightStyle.combinedMatch([
       HighlightStyle.define([{tag: t.punctuation, class: "outerPunc"}], {scope: wrapper.topNode}),
       HighlightStyle.define([{tag: t.variableName, class: "innerVar"}], {scope: parser.topNode})
@@ -127,11 +134,16 @@ describe("highlighting", () => {
   })
 
   test("can use language-wide styles", `[outer punctuation:<<][inner string:"wow"][outer punctuation:>>]`, {
-    parse: full,
+    parse: wrapper,
     highlight: HighlightStyle.combinedMatch([
       classHighlightStyle,
       HighlightStyle.define([], {scope: wrapper.topNode, all: "outer"}),
       HighlightStyle.define([], {scope: parser.topNode, all: "inner"})
     ])
   })
+
+  test("can highlight overlays",
+       `[punctuation:{]...[punctuation:{][string:"foo][punctuation:}]..[punctuation:{][string:bar"] [variableName:x][punctuation:}].[punctuation:}]`,
+       {parse: wrapper})
 })
+

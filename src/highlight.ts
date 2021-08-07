@@ -1,4 +1,4 @@
-import {Tree, NodeType, NodeProp} from "@lezer/common"
+import {Tree, NodeType, NodeProp, TreeCursor} from "@lezer/common"
 import {StyleSpec, StyleModule} from "style-mod"
 import {EditorView, ViewPlugin, ViewUpdate, Decoration, DecorationSet} from "@codemirror/view"
 import {EditorState, Extension, Prec, Facet} from "@codemirror/state"
@@ -411,19 +411,27 @@ const treeHighlighter = Prec.extend(ViewPlugin.fromClass(TreeHighlighter, {
 
 const nodeStack = [""]
 
-function highlightTreeRange(tree: Tree, from: number, to: number,
-                            style: (tag: Tag, scope: NodeType) => string | null,
-                            span: (from: number, to: number, cls: string) => void) {
-  let spanStart = from, spanClass = ""
-  let cursor = tree.topNode.cursor
+class HighlightBuilder {
+  class = ""
+  constructor(
+    public at: number,
+    readonly style: (tag: Tag, scope: NodeType) => string | null,
+    readonly span: (from: number, to: number, cls: string) => void
+  ) {}
 
-  function flush(at: number, newClass: string) {
-    if (spanClass) span(spanStart, at, spanClass)
-    spanStart = at
-    spanClass = newClass
+  startSpan(at: number, cls: string) {
+    if (cls != this.class) {
+      this.flush(at)
+      if (at > this.at) this.at = at
+      this.class = cls
+    }
   }
 
-  function node(inheritedClass: string, depth: number, scope: NodeType) {
+  flush(to: number) {
+    if (to > this.at && this.class) this.span(this.at, to, this.class)
+  }
+
+  highlightRange(cursor: TreeCursor, from: number, to: number, inheritedClass: string, depth: number, scope: NodeType) {
     let {type, from: start, to: end} = cursor
     if (start >= to || end <= from) return
     nodeStack[depth] = type.name
@@ -434,7 +442,7 @@ function highlightTreeRange(tree: Tree, from: number, to: number,
     while (rule) {
       if (!rule.context || matchContext(rule.context, nodeStack, depth)) {
         for (let tag of rule.tags) {
-          let st = style(tag, scope)
+          let st = this.style(tag, scope)
           if (st) {
             if (cls) cls += " "
             cls += st
@@ -446,19 +454,48 @@ function highlightTreeRange(tree: Tree, from: number, to: number,
       }
       rule = rule.next
     }
-    let upto = start
-    if (!opaque && cursor.firstChild()) {
+
+    this.startSpan(cursor.from, cls)
+    if (opaque) return
+
+    let mounted = cursor.tree && cursor.tree.prop(NodeProp.mounted)
+    if (mounted && mounted.overlay) {
+      let inner = cursor.node.enter(mounted.overlay[0].from + start, 1)!
+      let hasChild = cursor.firstChild()
+      for (let i = 0, pos = start;; i++) {
+        let next = i < mounted.overlay.length ? mounted.overlay[i] : null
+        let nextPos = next ? next.from + start : end
+        if (nextPos > pos && hasChild) {
+          while (cursor.from < nextPos) {
+            this.highlightRange(cursor, pos, nextPos, inheritedClass, depth + 1, scope)
+            this.startSpan(Math.min(to, cursor.to), cls)
+            if (cursor.to >= nextPos || !cursor.nextSibling()) break
+          }
+        }
+        if (!next) break
+        this.highlightRange(inner.cursor, next.from + start, next.to + start, inheritedClass, depth, mounted.tree.type)
+        pos = next.to + start
+        this.startSpan(pos, cls)
+      }
+      if (hasChild) cursor.parent()
+    } else if (cursor.firstChild()) {
       do {
-        if (cursor.from > upto && spanClass != cls) flush(upto, cls)
-        upto = cursor.to
-        node(inheritedClass, depth + 1, scope)
+        if (cursor.to <= from) continue
+        if (cursor.from >= to) break
+        this.highlightRange(cursor, from, to, inheritedClass, depth + 1, scope)
+        this.startSpan(Math.min(to, cursor.to), cls)
       } while (cursor.nextSibling())
       cursor.parent()
     }
-    if (end > upto && spanClass != cls) flush(upto, cls)
   }
-  node("", 0, tree.type)
-  flush(to, "")
+}
+
+function highlightTreeRange(tree: Tree, from: number, to: number,
+                            style: (tag: Tag, scope: NodeType) => string | null,
+                            span: (from: number, to: number, cls: string) => void) {
+  let builder = new HighlightBuilder(from, style, span)
+  builder.highlightRange(tree.cursor(), from, to, "", 0, tree.type)
+  builder.flush(to)
 }
 
 function matchContext(context: readonly (null | string)[], stack: readonly string[], depth: number) {
