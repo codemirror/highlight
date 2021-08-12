@@ -459,7 +459,7 @@ class HighlightBuilder {
     if (opaque) return
 
     let mounted = cursor.tree && cursor.tree.prop(NodeProp.mounted)
-    if (mounted && mounted.overlay) {
+    if (mounted && mounted.overlay && mounted.overlay.length > 0) {
       let inner = cursor.node.enter(mounted.overlay[0].from + start, 1)!
       let hasChild = cursor.firstChild()
       for (let i = 0, pos = start;; i++) {
