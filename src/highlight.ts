@@ -382,7 +382,7 @@ class TreeHighlighter {
   update(update: ViewUpdate) {
     let tree = syntaxTree(update.state), style = getHighlightStyle(update.state)
     let styleChange = style != update.startState.facet(highlightStyle)
-    if (tree.length < update.view.viewport.to && !styleChange) {
+    if (tree.length < update.view.viewport.to && !styleChange && tree.type == this.tree.type) {
       this.decorations = this.decorations.map(update.changes)
     } else if (tree != this.tree || update.viewportChanged || styleChange) {
       this.tree = tree
