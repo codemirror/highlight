@@ -1,3 +1,9 @@
+## 0.19.2 (2021-08-19)
+
+### Bug fixes
+
+Fix a bug where old highlighting could stick around when switching language parser configuration.
+
 ## 0.19.1 (2021-08-11)
 
 ### Bug fixes
