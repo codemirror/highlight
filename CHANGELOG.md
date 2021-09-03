@@ -1,3 +1,9 @@
+## 0.19.3 (2021-09-03)
+
+### Bug fixes
+
+Fix a crash in the highlighter when there were multiple visible ranges in the view and the gaps between them overlap with a tree overlay.
+
 ## 0.19.2 (2021-08-19)
 
 ### Bug fixes
