@@ -1,3 +1,9 @@
+## 0.19.4 (2021-09-03)
+
+### Bug fixes
+
+Fix a regression in 0.19.3 in highlighting over overlay trees.
+
 ## 0.19.3 (2021-09-03)
 
 ### Bug fixes
