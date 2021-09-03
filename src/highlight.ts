@@ -469,7 +469,7 @@ class HighlightBuilder {
         if (rangeFrom < rangeTo && hasChild) {
           while (cursor.from < rangeTo) {
             this.highlightRange(cursor, rangeFrom, rangeTo, inheritedClass, depth + 1, scope)
-            this.startSpan(Math.min(to, rangeTo), cls)
+            this.startSpan(Math.min(to, cursor.to), cls)
             if (cursor.to >= nextPos || !cursor.nextSibling()) break
           }
         }
