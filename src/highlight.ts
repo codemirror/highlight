@@ -465,17 +465,21 @@ class HighlightBuilder {
       for (let i = 0, pos = start;; i++) {
         let next = i < mounted.overlay.length ? mounted.overlay[i] : null
         let nextPos = next ? next.from + start : end
-        if (nextPos > pos && hasChild) {
-          while (cursor.from < nextPos) {
-            this.highlightRange(cursor, pos, nextPos, inheritedClass, depth + 1, scope)
-            this.startSpan(Math.min(to, cursor.to), cls)
+        let rangeFrom = Math.max(from, pos), rangeTo = Math.min(to, nextPos)
+        if (rangeFrom < rangeTo && hasChild) {
+          while (cursor.from < rangeTo) {
+            this.highlightRange(cursor, rangeFrom, rangeTo, inheritedClass, depth + 1, scope)
+            this.startSpan(Math.min(to, rangeTo), cls)
             if (cursor.to >= nextPos || !cursor.nextSibling()) break
           }
         }
-        if (!next) break
-        this.highlightRange(inner.cursor, next.from + start, next.to + start, inheritedClass, depth, mounted.tree.type)
+        if (!next || nextPos > to) break
         pos = next.to + start
-        this.startSpan(pos, cls)
+        if (pos > from) {
+          this.highlightRange(inner.cursor, Math.max(from, next.from + start), Math.min(to, pos),
+                              inheritedClass, depth, mounted.tree.type)
+          this.startSpan(pos, cls)
+        }
       }
       if (hasChild) cursor.parent()
     } else if (cursor.firstChild()) {
