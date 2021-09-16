@@ -351,9 +351,7 @@ export interface TagStyle {
   [styleProperty: string]: any
 }
 
-/// Given a string of code and a language, parse the code in that
-/// language and run the tree highlighter over the resulting syntax
-/// tree.
+/// Run the tree highlighter over the given tree.
 export function highlightTree(
   tree: Tree,
   /// Get the CSS classes used to style a given [tag](#highlight.Tag),
@@ -364,9 +362,13 @@ export function highlightTree(
   /// Assign styling to a region of the text. Will be called, in order
   /// of position, for any ranges where more than zero classes apply.
   /// `classes` is a space separated string of CSS classes.
-  putStyle: (from: number, to: number, classes: string) => void
+  putStyle: (from: number, to: number, classes: string) => void,
+  /// The start of the range to highlight.
+  from = 0,
+  /// The end of the range.
+  to = tree.length,
 ) {
-  highlightTreeRange(tree, 0, tree.length, getStyle, putStyle)
+  highlightTreeRange(tree, from, to, getStyle, putStyle)
 }
 
 class TreeHighlighter {
