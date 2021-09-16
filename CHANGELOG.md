@@ -1,3 +1,9 @@
+## 0.19.5 (2021-09-16)
+
+### New features
+
+`highlightTree` now takes `from` and `to` arguments to allow highlighting only a part of the tree.
+
 ## 0.19.4 (2021-09-03)
 
 ### Bug fixes
