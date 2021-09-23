@@ -1,3 +1,9 @@
+## 0.19.6 (2021-09-23)
+
+### New features
+
+Add two additional tags, `attributeName` and `attributeValue`, to make it easier to style XML/HTML languages in a specific way.
+
 ## 0.19.5 (2021-09-16)
 
 ### New features
