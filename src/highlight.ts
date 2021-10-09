@@ -811,6 +811,7 @@ export const defaultHighlightStyle = HighlightStyle.define([
 /// * [`variableName`](#highlight.tags.variableName)
 /// * [`typeName`](#highlight.tags.typeName)
 /// * [`namespace`](#highlight.tags.namespace)
+/// * [`className`](#highlight.tags.className)
 /// * [`macroName`](#highlight.tags.macroName)
 /// * [`propertyName`](#highlight.tags.propertyName)
 /// * [`operator`](#highlight.tags.operator)
@@ -831,6 +832,8 @@ export const defaultHighlightStyle = HighlightStyle.define([
 ///   to `"cmt-variableName cmt-local"`
 /// * [`definition`](#highlight.tags.definition)[`(variableName)`](#highlight.tags.variableName)
 ///   to `"cmt-variableName cmt-definition"`
+/// * [`definition`](#highlight.tags.definition)[`(propertyName)`](#highlight.tags.propertyName)
+///   to `"cmt-propertyName cmt-definition"`
 export const classHighlightStyle = HighlightStyle.define([
   {tag: tags.link, class: "cmt-link"},
   {tag: tags.heading, class: "cmt-heading"},
@@ -851,8 +854,10 @@ export const classHighlightStyle = HighlightStyle.define([
   {tag: tags.local(tags.variableName), class: "cmt-variableName cmt-local"},
   {tag: tags.definition(tags.variableName), class: "cmt-variableName cmt-definition"},
   {tag: tags.special(tags.variableName), class: "cmt-variableName2"},
+  {tag: tags.definition(tags.propertyName), class: "cmt-propertyName cmt-definition"},
   {tag: tags.typeName, class: "cmt-typeName"},
   {tag: tags.namespace, class: "cmt-namespace"},
+  {tag: tags.className, class: "cmt-className"},
   {tag: tags.macroName, class: "cmt-macroName"},
   {tag: tags.propertyName, class: "cmt-propertyName"},
   {tag: tags.operator, class: "cmt-operator"},
