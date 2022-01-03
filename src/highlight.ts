@@ -617,6 +617,9 @@ export const tags = {
   controlKeyword: t(keyword),
   /// A [keyword](#highlight.tags.keyword) that defines something.
   definitionKeyword: t(keyword),
+  /// A [keyword](#highlight.tags.keyword) related to defining or
+  /// interfacing with modules.
+  moduleKeyword: t(keyword),
 
   /// An operator.
   operator,
