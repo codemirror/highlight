@@ -1,3 +1,13 @@
+## 0.19.7 (2022-01-03)
+
+### Bug fixes
+
+Make `classHighlightStyle` emit classes for `tag.className` and `tags.definition(tags.propertyName)`. Follow precedence level rename
+
+### New features
+
+Add a new highlighting tag `moduleKeyword`.
+
 ## 0.19.6 (2021-09-23)
 
 ### New features
