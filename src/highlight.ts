@@ -238,7 +238,7 @@ export class HighlightStyle {
   private all: string | null 
 
   private constructor(spec: readonly TagStyle[],
-                      options: {scope?: NodeType, all?: string | StyleSpec}) {
+                      options: {scope?: NodeType, all?: string | StyleSpec, themeType?: "dark" | "light"}) {
     let modSpec: {[name: string]: StyleSpec} | undefined
     function def(spec: StyleSpec) {
       let cls = StyleModule.newName()
@@ -260,7 +260,10 @@ export class HighlightStyle {
     this.match = this.match.bind(this)
     let ext = [treeHighlighter]
     if (this.module) ext.push(EditorView.styleModule.of(this.module))
-    this.extension = ext.concat(highlightStyle.of(this))
+    this.extension = ext.concat(options.themeType == null ? highlightStyle.of(this) :
+      highlightStyle.computeN([EditorView.darkTheme], state => {
+        return state.facet(EditorView.darkTheme) == (options.themeType == "dark") ? [this] : []
+      }))
     this.fallback = ext.concat(fallbackHighlightStyle.of(this))
   }
 
@@ -318,7 +321,11 @@ export class HighlightStyle {
     scope?: NodeType,
     /// Add a style to _all_ content. Probably only useful in
     /// combination with `scope`.
-    all?: string | StyleSpec
+    all?: string | StyleSpec,
+    /// Specify that this highlight style should only be active then
+    /// the theme is dark or light. By default, it is active
+    /// regardless of theme.
+    themeType?: "dark" | "light"
   }) {
     return new HighlightStyle(specs, options || {})
   }
