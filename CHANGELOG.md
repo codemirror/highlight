@@ -1,3 +1,9 @@
+## 0.19.8 (2022-03-27)
+
+### New features
+
+Highlight styles can now set a `themeType` option to make them only apply to dark or light themed editors.
+
 ## 0.19.7 (2022-01-03)
 
 ### Bug fixes
